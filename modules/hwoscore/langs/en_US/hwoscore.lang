@@ -1,0 +1,4 @@
+Module700100Name=HWOS Core
+Module700100Desc=Shared technical foundation for all HWOS modules
+HwosCorePermissionRead=Read shared HWOS information
+HwosCorePermissionAdmin=Administer HWOS settings

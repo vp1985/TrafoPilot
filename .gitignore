@@ -1,0 +1,6 @@
+releases/*.tar.gz
+releases/*.sha256
+.DS_Store
+.idea/
+.vscode/
+vendor/
