@@ -1,0 +1,9 @@
+Module700200Name=TrafoPilot – Lexware Office
+Module700200Desc=Lesender Lexware-Office-Spiegel
+TrafoPilotLexware=TrafoPilot Lexware
+LexwarePermissionRead=Lexware-Spiegel ansehen
+LexwarePermissionSync=Lexware-Daten abrufen
+LexwarePermissionMapping=Dubletten und Zuordnungen bearbeiten
+LexwarePermissionRetry=Synchronisationsfehler erneut verarbeiten
+LexwarePermissionAdmin=Lexware-Verbindung administrieren
+Lexware=Lexware

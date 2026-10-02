@@ -1,0 +1,9 @@
+Module700200Name=TrafoPilot – Lexware Office
+Module700200Desc=Read-only Lexware Office mirror
+TrafoPilotLexware=TrafoPilot Lexware
+LexwarePermissionRead=View Lexware mirror
+LexwarePermissionSync=Retrieve Lexware data
+LexwarePermissionMapping=Review duplicates and mappings
+LexwarePermissionRetry=Retry synchronization errors
+LexwarePermissionAdmin=Administer Lexware connection
+Lexware=Lexware
