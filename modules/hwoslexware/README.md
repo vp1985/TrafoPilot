@@ -78,16 +78,13 @@ Container oder Compose-Konfiguration.
 Jeder Vorfahr ab `/` muss root oder `vadmin` gehören, ohne Gruppen-/Fremdschreibrecht
 und ohne Symlink. Private Quellverzeichnisse sollen 0700 haben; die reguläre ENV-Datei
 muss `vadmin` gehören und soll 0600 haben. Installiertes Ziel: `root:www-data 0440`.
-Am 2026-10-02 verweigert der Preflight die reale Quelle: `/home/vadmin/.config`
-ist `vadmin:vadmin 0775`. `/home/vadmin` ist 0750, `trafopilot` 0700 und die ENV-Datei
-0600. Die strenge Prüfung bleibt bestehen.
-
-Erforderliche Administrator-Remediation, **hier nicht ausgeführt**: nach Prüfung von
-Eigentümer, Symlinkfreiheit und Auswirkungen auf andere Nutzer
-`chmod 0700 /home/vadmin/.config /home/vadmin/.config/trafopilot` und
-`chmod 0600 /home/vadmin/.config/trafopilot/lexware-dev.env`; die privaten Quellen
-müssen weiterhin `vadmin` gehören. Danach den Preflight erneut bestehen lassen,
-bevor separat autorisierte Installation oder Rotation erfolgt.
+Am 2026-10-02 verweigerte der Preflight die reale Quelle zunächst, weil
+`/home/vadmin/.config` als `vadmin:vadmin 0775` gruppenschreibbar war. Nach Prüfung
+von Eigentümer, Symlinkfreiheit und Auswirkungen wurden `/home/vadmin/.config` und
+`/home/vadmin/.config/trafopilot` auf 0700 sowie die ENV-Datei auf 0600 gesetzt; die
+privaten Quellen gehören weiterhin `vadmin`. Der anschließende schreibfreie Preflight
+bestand mit `SOURCE_PREFLIGHT_OK`. Bei Wiederherstellung oder Umzug der Quelle gelten
+dieselben Eigentümer- und Rechteanforderungen, bevor Installation oder Rotation erfolgt.
 
 HTTP-Fixtures verwenden ein zufälliges 0700-Containerverzeichnis pro Aufruf.
 Eine hostlokale benutzereigene 0600-flock-Datei unter

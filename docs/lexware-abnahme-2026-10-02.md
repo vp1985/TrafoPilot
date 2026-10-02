@@ -225,3 +225,13 @@ hier ausdrücklich nicht behauptet.
 - Die nativen Live-Zuordnungen blieben unverändert: Debitor 32, Dienstleistung 44 und Angebot 40/`AG0008`; 100,00 EUR netto, 19,00 EUR Umsatzsteuer und 119,00 EUR brutto. Die gespeicherte PDF-Datei umfasst 42.974 Bytes; gespeicherter und berechneter SHA-256 sind weiterhin identisch (`9438215303046841f7ebfe651c3a5016928ea1d0417b88bf917bf85a4ee25cba`). Offene Spiegelprobleme: 0.
 
 Dieser Abschnitt belegt den Worktree-Code in DEV. Versioniertes Artefakt, TEST-Installation und Produktionsfreigabe sind getrennte nachfolgende Gates.
+
+## Versionierte Artefakte und TEST-Installation
+
+- Aus Commit `1bb06ed` wurden zwei unveränderliche Dolibarr-Modulpakete erzeugt und mit gespeicherten SHA-256-Dateien geprüft:
+  - `module_hwoscore-0.1.0-1bb06eda65f7.zip` — SHA-256 `038874d352018f4fff6d120659b66995784b43d5353cbee2484887fd9bb9f800`
+  - `module_hwoslexware-0.1.0-1bb06eda65f7.zip` — SHA-256 `ea778be972f692167a71fc11a5d8423a8d5b72fe0ebb6c668d888d3bca6494fa`
+- Beide Archive wurden auf Pfadtraversal, Symlinks und ZIP-Integrität geprüft, sicher nach `/opt/dolibarr/test/custom` installiert und anschließend dateiweise gegen den jeweiligen Archivinhalt verglichen: Core 5 Dateien, Lexware 21 Dateien, vollständige Manifestgleichheit.
+- Core und Lexware wurden in TEST jeweils zweimal aktiviert. Tabellen und Aktivierungskonstanten sind vorhanden; genau ein Lexware-Cronjob besteht in TEST-Entität 1 und ist deaktiviert (rowid 1, Status 0).
+- Die vollständigen neun PHP-/Dolibarr-Testdateien liefen anschließend gegen die tatsächlich installierten TEST-Module erfolgreich. Der Endzustand enthält keine Fixture-Aktivierung, keinen Fixture-Cronjob und keine Fixture-Spiegeldaten.
+- TEST erhielt keinen Lexware-Schlüssel und führte keinen Live-Abgleich aus. Produktion wurde nicht verändert. Die Freigabe für einen automatischen Cronbetrieb oder eine Produktionsinstallation ist damit weiterhin nicht erteilt.
