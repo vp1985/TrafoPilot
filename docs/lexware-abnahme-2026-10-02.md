@@ -1,9 +1,10 @@
 # TrafoPilot – Abnahmeprüfung Lexware Phase 1
 
-Prüfdatum: 2026-10-02. Ergebnis: **Teilabnahme; Gesamtfreigabe noch offen**.
+Prüfdatum: 2026-10-02. Ergebnis: **Technisch einsatzbereit im vorläufigen DEV-Arbeitssystem; TEST-Abnahme abgeschlossen; Produktionsfreigabe noch offen**.
 Geprüft wurden der vorhandene Modulcode, die aktuelle offizielle API-Dokumentation,
-die gesamte Repository-Testsuite, echte DEV-HTTP-Aufrufe und erneute GET-only-Läufe.
-Keine Commits, Pushes oder TEST-/Produktionsänderungen.
+die gesamte Repository-Testsuite, echte DEV-HTTP-Aufrufe, GET-only-Läufe und die
+Installation versionierter Artefakte auf TEST. Der Feature-Branch wurde committed
+und gepusht; Produktion wurde nicht verändert.
 
 ## Kriterien und Nachweise
 
@@ -87,7 +88,7 @@ Die fehlende Mahnungsliste ist eine Grenze der Public API. Keine UI-Simulation o
 - Erneute negative HTTP-Prüfungen wiesen Dry Run, Verbindungstest, Retry, Ressourcenabruf und Mapping für einen Benutzer mit ausschließlich Leserecht ab. Spiegelzustände blieben unverändert; POST ohne CSRF wurde abgewiesen. Temporäre HTTP-Benutzer wurden entfernt und die Verzeichnisrechte wiederhergestellt.
 - Integritätsprüfung vor der dauerhaften Modulaktivierung: 532 Spiegelressourcen, sämtliche Payload-Prüfsummen gültig, keine doppelten Identitäten, keine verbliebenen HTTP-Fixture-Benutzer. Die drei zusätzlichen Ressourcen gegenüber Lauf 103 stammen aus den bereits dokumentierten synthetischen Live-Testdaten.
 
-Die Teilabnahme bleibt bestehen: Dateigrößenbegrenzung, entfernte Dokumentbeziehungen, Positions-/Versandrevisionen und automatischer laufender Cronbetrieb sind weiterhin offene Review- bzw. Betriebsnachweise. TEST und Produktion wurden nicht verändert; keine Commits oder Pushes.
+Die fachlichen Grenzen bleiben bestehen: Dateigrößenbegrenzung, entfernte Dokumentbeziehungen, Positions-/Versandrevisionen und automatischer laufender Cronbetrieb sind weiterhin offene Review- bzw. Betriebsnachweise. DEV wird vorläufig als Arbeitssystem verwendet; die versionierten Module sind auf TEST installiert und geprüft. Produktion wurde nicht verändert.
 
 ## Eingrenzte Nachprüfung der sechs Akzeptanzkorrekturen
 
@@ -228,10 +229,19 @@ Dieser Abschnitt belegt den Worktree-Code in DEV. Versioniertes Artefakt, TEST-I
 
 ## Versionierte Artefakte und TEST-Installation
 
-- Aus Commit `fd33412` wurden zwei unveränderliche Dolibarr-Modulpakete erzeugt und mit gespeicherten SHA-256-Dateien geprüft:
-  - `module_hwoscore-0.1.0-fd33412dd9bc.zip` — SHA-256 `257fadd41e78699a0bef22529c48256d05882dad03415a2ee6f613b0f9d49a15`
-  - `module_hwoslexware-0.1.0-fd33412dd9bc.zip` — SHA-256 `d1c55770dec384653d2e74004185032b738d8a3e4be913f5eab4ab833b1d76fe`
+- Aus Commit `3b88282` wurden zwei unveränderliche Dolibarr-Modulpakete erzeugt und mit gespeicherten SHA-256-Dateien geprüft:
+  - `module_hwoscore-0.1.0-3b8828259138.zip` — SHA-256 `f58599b087a82f32262cdb680ef77bc20fbf898d68d7d239b0711b9a98c47b9f`
+  - `module_hwoslexware-0.1.0-3b8828259138.zip` — SHA-256 `ecd4b408989d873f8eb692491af13a5718cb0e5acb103f13b755c891d360074f`
 - Beide Archive wurden auf Pfadtraversal, Symlinks und ZIP-Integrität geprüft, sicher nach `/opt/dolibarr/test/custom` installiert und anschließend dateiweise gegen den jeweiligen Archivinhalt verglichen: Core 5 Dateien, Lexware 21 Dateien, vollständige Manifestgleichheit.
 - Core und Lexware wurden in TEST jeweils zweimal aktiviert. Tabellen und Aktivierungskonstanten sind vorhanden; genau ein Lexware-Cronjob besteht in TEST-Entität 1 und ist deaktiviert (rowid 1, Status 0).
-- Die vollständigen neun PHP-/Dolibarr-Testdateien liefen gegen die finalen TEST-Module erfolgreich. Danach wurde auf die vorherigen Artefakte zurückgerollt und dieselbe Suite erneut erfolgreich ausgeführt. Abschließend wurden die finalen `fd33412`-Artefakte wieder eingespielt, die Suite ein drittes Mal erfolgreich ausgeführt, die alten Verzeichnisse entfernt und die finale Manifestgleichheit erneut bestätigt.
+- Die vollständigen neun PHP-/Dolibarr-Testdateien liefen gegen die finalen TEST-Module erfolgreich. Der atomare Rollback auf den vorherigen Stand wurde technisch ausgeführt; die aktuelle Suite stoppte dort erwartungsgemäß an der erst im neuen Stand eingeführten Prüfung des Konfliktseiten-Leerzustands. Die finalen `3b88282`-Artefakte wurden unmittelbar wieder eingespielt, die vollständige Suite lief erfolgreich, die alten Verzeichnisse wurden entfernt und die finale Manifestgleichheit erneut bestätigt. Der Rollbackmechanismus ist damit geprüft; der ältere Stand erfüllt bewusst nicht die neue UI-Anforderung.
 - Der Endzustand enthält keine Fixture-Aktivierung, keinen Fixture-Cronjob und keine Fixture-Spiegeldaten. TEST erhielt keinen Lexware-Schlüssel und führte keinen Live-Abgleich aus. Produktion wurde nicht verändert. Die Freigabe für einen automatischen Cronbetrieb oder eine Produktionsinstallation ist damit weiterhin nicht erteilt.
+
+## Finaler DEV-Arbeitsstand und UI-Nachprüfung
+
+- DEV wurde auf Benutzerentscheidung als vorläufiges Arbeitssystem festgelegt. Der finale Modulcode ist dauerhaft eingebunden; Web- und Croncontainer wurden mit dem geschützten Read-only-Secret neu erstellt und waren gesund. Der Lexware-Cronjob bleibt deaktiviert.
+- Die abschließende Suite bestand erneut: 15 Python-Tests, zwei browserfreie Node-Tests und alle neun PHP-/Dolibarr-Testdateien. Authentifizierte HTTP- und Chromium-Prüfungen bestanden einschließlich GET-Verbindung über das dauerhaft gemountete Secret, Ressourcendetail und mobiler Übersicht. Das Screenshotverzeichnis war 0700, alle fünf PNG-Dateien 0600.
+- Regulärer GET-only-Vollabgleich über den dauerhaft eingebundenen DEV-Code: Lauf 219, Status `complete`, 532 Spiegelressourcen, drei native Zuordnungen, eine verifizierte PDF-Datei und null offene Probleme. Lager-, Bank-, Zahlungs- und Buchhaltungsprüfsummen blieben unverändert.
+- Die leere Konfliktseite zeigt nun ausdrücklich „Keine offenen Lexware-Konflikte“ und den letzten erfolgreichen Abgleich. Ein testgetrieben behobener Fehler stellt sicher, dass ein neuerer fehlgeschlagener oder laufender Lauf den letzten erfolgreichen Lauf nicht verdeckt. Test-Fixtures verwenden eine zufällige Entity und bereinigen ausschließlich ihre erfassten Lauf-IDs.
+- Das abschließende unabhängige Review dieser UI-Korrektur meldete `passed: true`, keine Sicherheitsbedenken, keine Logikfehler und keine offenen Vorschläge.
+- Geprüfter und gepushter Modulcommit: `3b8828259138530b84e3017a75dd9a5dc687d9c6` auf `feature/lexware-production-ready`. Ein Pull Request wurde mangels authentifizierter GitHub-Session nicht automatisch angelegt; Compare-Link: `https://github.com/vp1985/TrafoPilot/compare/main...feature/lexware-production-ready?expand=1`.
