@@ -18,21 +18,30 @@ if [[ "$labels" != "$expected_project|$expected_service" ]]; then
     exit 1
 fi
 
-copied_tests=()
+module_path="/var/www/html/hwos-suite-$$"
+test_directory=""
+python3 -m unittest discover -s "$repo_root/tests" -p 'test_*.py'
+node --test "$repo_root/tests/test_lexware_visual.cjs"
+
 cleanup() {
-    local test_path
-    for test_path in "${copied_tests[@]}"; do
-        "${docker_cmd[@]}" exec "$container" rm -f -- "$test_path" >/dev/null 2>&1 || true
-    done
+    "${docker_cmd[@]}" exec "$container" rm -rf -- "$module_path" >/dev/null 2>&1 || true
+    if [[ -n "$test_directory" ]]; then
+        "${docker_cmd[@]}" exec "$container" rm -rf -- "$test_directory" >/dev/null 2>&1 || true
+    fi
 }
 trap cleanup EXIT
+test_directory="$("${docker_cmd[@]}" exec "$container" mktemp -d /tmp/hwos-tests-XXXXXXXXXX)"
+"${docker_cmd[@]}" exec "$container" chmod 700 "$test_directory"
+"${docker_cmd[@]}" cp "$repo_root/scripts/lexware-ui-fixture.php" "$container:$test_directory/lexware-ui-fixture.php"
+"${docker_cmd[@]}" exec "$container" mkdir -p "$module_path"
+"${docker_cmd[@]}" cp "$repo_root/modules/." "$container:$module_path"
 
 for test_file in "$repo_root"/tests/php/test_*.php; do
     test_name="$(basename "$test_file")"
-    test_path="/tmp/$test_name"
-    copied_tests+=("$test_path")
+    test_path="$test_directory/$test_name"
     "${docker_cmd[@]}" cp "$test_file" "$container:$test_path"
     "${docker_cmd[@]}" exec \
-        -e HWOS_MODULE_ROOT=/var/www/html/custom \
+        -e HWOS_MODULE_ROOT="$module_path" \
+        -e HWOS_SCRIPT_ROOT="$test_directory" \
         "$container" php "$test_path"
 done

@@ -1,6 +1,11 @@
 releases/*.tar.gz
+releases/*.zip
 releases/*.sha256
 .DS_Store
 .idea/
 .vscode/
 vendor/
+
+# Generated Python bytecode
+__pycache__/
+*.py[cod]

@@ -34,7 +34,8 @@ print load_fiche_titre('TrafoPilot – Lexware Office');
 print '<p>Lexware Office → Dolibarr · ausschließlich lesend</p>';
 if ($notice) { print '<p>'.lxEscape($notice).'</p>'; }
 if ($user->hasRight('hwoslexware', 'admin')) {
-    print '<p>Read-only-Secret: '.(getenv('LEXWARE_TEST_API_KEY_READ_ONLY') ? 'injiziert' : 'nicht injiziert').'</p>';
+    try { LexwareClient::fromEnvironment(); $secretAvailable = true; } catch (Throwable $e) { $secretAvailable = false; }
+    print '<p>Read-only-Secret: '.($secretAvailable ? 'injiziert' : 'nicht injiziert').'</p>';
     print '<p>Organisation: Holger Testzentrum · '.lxEscape(LexwareClient::ORGANIZATION).'</p>';
 }
 print '<form method="POST"><input type="hidden" name="token" value="'.lxEscape(newToken()).'">';

@@ -35,3 +35,50 @@ $exhaust = new LexwareClient('fixture-secret', function () use (&$failures) { $f
 try { $exhaust->get('/v1/profile'); throw new DomainException('503 accepted'); }
 catch (RuntimeException $e) { lxAssert($failures === 5 && $e->getMessage() === 'LEXWARE_RETRY_EXHAUSTED_503', 'bounded retries'); }
 echo "PASS: network/5xx/504 retries, bounded failures and error redaction\n";
+
+$previousSecret = getenv('LEXWARE_TEST_API_KEY_READ_ONLY');
+$previousFile = getenv('LEXWARE_TEST_API_KEY_READ_ONLY_FILE');
+$secretDir = sys_get_temp_dir().'/lx-private-'.bin2hex(random_bytes(6));
+mkdir($secretDir, 0700);
+$secretFile = $secretDir.'/key';
+try {
+    putenv('LEXWARE_TEST_API_KEY_READ_ONLY');
+    file_put_contents($secretFile, "fixture-read-only-secret\n");
+    chmod($secretFile, 0600);
+    putenv('LEXWARE_TEST_API_KEY_READ_ONLY_FILE='.$secretFile);
+    lxAssert(LexwareClient::fromEnvironment() instanceof LexwareClient, 'private mounted secret accepted');
+    chmod($secretDir, 0777);
+    try { LexwareClient::fromEnvironment(); throw new DomainException('unsafe parent accepted'); }
+    catch (RuntimeException $e) { lxAssert($e->getMessage()==='READ_ONLY_SECRET_FILE_INVALID', 'unsafe parent rejected'); }
+    chmod($secretDir, 0700);
+    symlink($secretDir, $secretDir.'-link');
+    putenv('LEXWARE_TEST_API_KEY_READ_ONLY_FILE='.$secretDir.'-link/key');
+    try { LexwareClient::fromEnvironment(); throw new DomainException('symlink parent accepted'); }
+    catch (RuntimeException $e) { lxAssert($e->getMessage()==='READ_ONLY_SECRET_FILE_INVALID', 'symlink parent rejected'); }
+    unlink($secretDir.'-link');
+    putenv('LEXWARE_TEST_API_KEY_READ_ONLY_FILE='.$secretFile);
+    file_put_contents($secretFile, str_repeat('x',4095)."\n");
+    lxAssert(LexwareClient::fromEnvironment() instanceof LexwareClient, '4096 serialized bytes accepted');
+    file_put_contents($secretFile, str_repeat('x',4096)."\n");
+    try { LexwareClient::fromEnvironment(); throw new DomainException('4097 bytes accepted'); }
+    catch (RuntimeException $e) { lxAssert($e->getMessage()==='READ_ONLY_SECRET_FILE_INVALID', '4097 serialized bytes rejected'); }
+    chmod($secretFile, 0644); clearstatcache(true, $secretFile);
+    try { LexwareClient::fromEnvironment(); throw new DomainException('public secret accepted'); }
+    catch (RuntimeException $e) { lxAssert($e->getMessage()==='READ_ONLY_SECRET_FILE_INVALID', 'public secret rejected without leaking path or content'); }
+    chmod($secretFile, 0600); clearstatcache(true, $secretFile);
+    file_put_contents($secretFile, '');
+    try { LexwareClient::fromEnvironment(); throw new DomainException('empty secret accepted'); }
+    catch (RuntimeException $e) { lxAssert($e->getMessage()==='READ_ONLY_SECRET_MISSING', 'empty secret rejected'); }
+    file_put_contents($secretFile, 'fixture-read-only-secret');
+    putenv('LEXWARE_TEST_API_KEY_READ_ONLY=fixture-env-secret');
+    try { LexwareClient::fromEnvironment(); throw new DomainException('ambiguous secret accepted'); }
+    catch (RuntimeException $e) { lxAssert($e->getMessage()==='READ_ONLY_SECRET_CONFIGURATION_AMBIGUOUS', 'ambiguous sources rejected'); }
+    putenv('LEXWARE_TEST_API_KEY_READ_ONLY_FILE');
+    lxAssert(LexwareClient::fromEnvironment() instanceof LexwareClient, 'existing environment injection supported');
+} finally {
+    unlink($secretFile);
+    rmdir($secretDir);
+    putenv($previousSecret === false ? 'LEXWARE_TEST_API_KEY_READ_ONLY' : 'LEXWARE_TEST_API_KEY_READ_ONLY='.$previousSecret);
+    putenv($previousFile === false ? 'LEXWARE_TEST_API_KEY_READ_ONLY_FILE' : 'LEXWARE_TEST_API_KEY_READ_ONLY_FILE='.$previousFile);
+}
+echo "PASS: private read-only secret file, missing/unsafe/ambiguous sources and environment compatibility\n";
