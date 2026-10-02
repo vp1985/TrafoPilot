@@ -4,3 +4,7 @@ releases/*.sha256
 .idea/
 .vscode/
 vendor/
+
+# Generated Python bytecode
+__pycache__/
+*.py[cod]

@@ -7,7 +7,12 @@ define('NOCSRFCHECK', 1);
 require '/var/www/html/main.inc.php';
 
 $moduleRoot = getenv('HWOS_MODULE_ROOT') ?: '/tmp/hwos/modules';
+$conf->file->dol_document_root = ['hwos_test'=>$moduleRoot] + $conf->file->dol_document_root;
+$conf->file->dol_url_root['hwos_test'] = '/hwos-test';
 require_once $moduleRoot.'/hwoscore/core/modules/modHwosCore.class.php';
+if (($conf->file->dol_document_root['hwos_test'] ?? null) !== $moduleRoot) {
+    throw new RuntimeException('staged module root is not registered before activation');
+}
 
 function activationQuery($db, string $sql): string
 {

@@ -5,9 +5,14 @@ require '/var/www/html/main.inc.php';
 // Isolate fixtures from real DEV mirrors and native business records.
 $conf->entity = 970200;
 $root = getenv('HWOS_MODULE_ROOT') ?: '/var/www/html/custom';
+$conf->file->dol_document_root = ['hwos_test'=>$root] + $conf->file->dol_document_root;
+$conf->file->dol_url_root['hwos_test'] = '/hwos-test';
 require_once $root.'/hwoscore/core/modules/modHwosCore.class.php';
 require_once $root.'/hwoslexware/core/modules/modHwosLexware.class.php';
 require_once $root.'/hwoslexware/class/LexwareSync.php';
+if (($conf->file->dol_document_root['hwos_test'] ?? null) !== $root) {
+    throw new RuntimeException('staged module root is not registered before Lexware activation');
+}
 function checkLx(bool $ok,string $m): void { if (!$ok) { throw new RuntimeException($m); } }
 $s = new LexwareStore($db,(int) $conf->entity); $module = new modHwosLexware($db); $core = new modHwosCore($db);
 $original = $s->rows('SELECT name,value FROM '.MAIN_DB_PREFIX."const WHERE name IN ('MAIN_MODULE_HWOSCORE','MAIN_MODULE_HWOSLEXWARE') AND entity=".$s->entity);
@@ -16,9 +21,14 @@ $user->fetch(1); $user->getrights();
 $user->rights->hwoslexware = new stdClass();
 // Explicit test principal: production services still call server-side permissions.
 foreach (['read','sync','mapping','retry','admin'] as $right) { $user->rights->hwoslexware->$right = 1; }
-$fixtureIds = []; $runs = []; $native = []; $error = null;
+$fixtureIds = []; $runs = []; $native = []; $error = null; $lifecycleEntered = false;
+$globalActivation = $s->rows('SELECT rowid FROM '.MAIN_DB_PREFIX."const WHERE name IN ('MAIN_MODULE_HWOSCORE','MAIN_MODULE_HWOSLEXWARE') AND entity=0");
+if ($globalActivation) {
+    fwrite(STDERR, "FAIL: global activation blocks lifecycle test\n");
+    exit(1);
+}
 try {
-    checkLx(!$s->rows('SELECT rowid FROM '.MAIN_DB_PREFIX."const WHERE name IN ('MAIN_MODULE_HWOSCORE','MAIN_MODULE_HWOSLEXWARE') AND entity=0"), 'global activation blocks lifecycle test');
+    $lifecycleEntered = true;
     checkLx($core->init() === 1,'core activation');
     checkLx($module->init() === 1 && $module->init() === 1,'double module activation: '.$module->error);
     // CLI activation does not refresh module parts; emulate the next web request
@@ -222,10 +232,23 @@ finally {
         $s->query('DELETE FROM '.$s->table('run').' WHERE entity='.$s->entity.' AND rowid IN ('.implode(',',$runs).')');
     }
     } finally {
-    if (isset($original)) {
+    if ($lifecycleEntered && isset($original)) {
+        try {
         checkLx(($active['MAIN_MODULE_HWOSLEXWARE'] ?? false) ? $module->init()===1 : $module->remove()===1,'restore Lexware activation');
+        } finally {
+        // Dolibarr removal disables jobs instead of deleting them. Remove only the
+        // inactive synthetic entity's Lexware row, even if native cleanup failed.
+        try {
+        if (!($active['MAIN_MODULE_HWOSLEXWARE'] ?? false)) {
+            $s->query('DELETE FROM '.MAIN_DB_PREFIX."cronjob WHERE entity=970200 AND module_name='hwoslexware'");
+        }
+        } finally {
         checkLx(($active['MAIN_MODULE_HWOSCORE'] ?? false) ? $core->init()===1 : $core->remove()===1,'restore core activation');
+        }
+        }
     }
     }
 }
+checkLx(($active['MAIN_MODULE_HWOSLEXWARE'] ?? false) || !$s->rows('SELECT rowid FROM '.MAIN_DB_PREFIX."cronjob WHERE entity=970200 AND module_name='hwoslexware'"), 'no disabled Lexware fixture cron remains');
+echo "PASS: fixture cron cleanup and prior activation restoration\n";
 if ($error) { fwrite(STDERR,'FAIL: '.$error."\n"); exit(1); }

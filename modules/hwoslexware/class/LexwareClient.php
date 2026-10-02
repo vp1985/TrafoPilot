@@ -33,7 +33,62 @@ final class LexwareClient
     }
     public static function fromEnvironment(): self
     {
-        return new self((string) getenv('LEXWARE_TEST_API_KEY_READ_ONLY'));
+        $secret = (string) getenv('LEXWARE_TEST_API_KEY_READ_ONLY');
+        $configuredFile = (string) getenv('LEXWARE_TEST_API_KEY_READ_ONLY_FILE');
+        if ($secret !== '' && $configuredFile !== '') { throw new RuntimeException('READ_ONLY_SECRET_CONFIGURATION_AMBIGUOUS'); }
+        if ($secret !== '') { return new self($secret); }
+        // Fixed Docker-secret path also works in cron, which does not retain container env.
+        $file = $configuredFile !== '' ? $configuredFile : '/run/secrets/lexware_test_api_key_read_only';
+        $before = self::secretPathInfo($file);
+        $handle = @fopen($file, 'rb');
+        if (!$handle) { throw new RuntimeException('READ_ONLY_SECRET_FILE_INVALID'); }
+        try {
+            $opened = fstat($handle);
+            $after = self::secretPathInfo($file);
+            if (!$opened || ($opened['mode'] & 0170000) !== 0100000
+                || ($opened['mode'] & 0027) !== 0 || $opened['size'] > 4096
+                || $opened['uid'] !== $before['uid']
+                || $opened['dev'] !== $before['dev'] || $opened['ino'] !== $before['ino']
+                || $opened['dev'] !== $after['dev'] || $opened['ino'] !== $after['ino']) {
+                throw new RuntimeException('READ_ONLY_SECRET_FILE_INVALID');
+            }
+            // Limit bytes actually read as well as descriptor size (concurrent growth).
+            $value = stream_get_contents($handle, 4097);
+            if ($value === false || strlen($value) > 4096) { throw new RuntimeException('READ_ONLY_SECRET_FILE_INVALID'); }
+        } finally { fclose($handle); }
+        $value = trim($value);
+        if (preg_match('/[\\x00-\\x20\\x7f]/', $value)) { throw new RuntimeException('READ_ONLY_SECRET_FILE_INVALID'); }
+        return new self($value);
+    }
+    private static function secretPathInfo(string $file): array
+    {
+        if (!str_starts_with($file, '/') || str_contains($file, "\0")
+            || preg_match('~/(?:\.\.?)(?:/|$)|//~', $file)) {
+            throw new RuntimeException('READ_ONLY_SECRET_FILE_INVALID');
+        }
+        $path = $file;
+        $leaf = true;
+        $result = [];
+        do {
+            clearstatcache(true, $path);
+            $info = @lstat($path);
+            $type = $leaf ? 0100000 : 0040000;
+            // Root and the current service account are trusted; other owners are not.
+            $trustedOwner = $info && ($info['uid'] === 0 || $info['uid'] === posix_geteuid());
+            // Root-owned sticky ancestors such as /tmp cannot replace a private child.
+            $stickyAncestor = !$leaf && $path !== dirname($file) && $info
+                && $info['uid'] === 0 && ($info['mode'] & 01000);
+            if (!$info || ($info['mode'] & 0170000) !== $type || !$trustedOwner
+                || ($leaf ? (($info['mode'] & 0027) !== 0 || $info['size'] > 4096)
+                    : (($info['mode'] & 0022) !== 0 && !$stickyAncestor))) {
+                throw new RuntimeException('READ_ONLY_SECRET_FILE_INVALID');
+            }
+            if ($leaf) { $result = $info; }
+            $leaf = false;
+            if ($path === '/') { break; }
+            $path = dirname($path);
+        } while (true);
+        return $result;
     }
     public function get(string $path, string $accept = 'application/json'): array
     {
