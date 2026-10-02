@@ -228,10 +228,10 @@ Dieser Abschnitt belegt den Worktree-Code in DEV. Versioniertes Artefakt, TEST-I
 
 ## Versionierte Artefakte und TEST-Installation
 
-- Aus Commit `1bb06ed` wurden zwei unveränderliche Dolibarr-Modulpakete erzeugt und mit gespeicherten SHA-256-Dateien geprüft:
-  - `module_hwoscore-0.1.0-1bb06eda65f7.zip` — SHA-256 `038874d352018f4fff6d120659b66995784b43d5353cbee2484887fd9bb9f800`
-  - `module_hwoslexware-0.1.0-1bb06eda65f7.zip` — SHA-256 `ea778be972f692167a71fc11a5d8423a8d5b72fe0ebb6c668d888d3bca6494fa`
+- Aus Commit `fd33412` wurden zwei unveränderliche Dolibarr-Modulpakete erzeugt und mit gespeicherten SHA-256-Dateien geprüft:
+  - `module_hwoscore-0.1.0-fd33412dd9bc.zip` — SHA-256 `257fadd41e78699a0bef22529c48256d05882dad03415a2ee6f613b0f9d49a15`
+  - `module_hwoslexware-0.1.0-fd33412dd9bc.zip` — SHA-256 `d1c55770dec384653d2e74004185032b738d8a3e4be913f5eab4ab833b1d76fe`
 - Beide Archive wurden auf Pfadtraversal, Symlinks und ZIP-Integrität geprüft, sicher nach `/opt/dolibarr/test/custom` installiert und anschließend dateiweise gegen den jeweiligen Archivinhalt verglichen: Core 5 Dateien, Lexware 21 Dateien, vollständige Manifestgleichheit.
 - Core und Lexware wurden in TEST jeweils zweimal aktiviert. Tabellen und Aktivierungskonstanten sind vorhanden; genau ein Lexware-Cronjob besteht in TEST-Entität 1 und ist deaktiviert (rowid 1, Status 0).
-- Die vollständigen neun PHP-/Dolibarr-Testdateien liefen anschließend gegen die tatsächlich installierten TEST-Module erfolgreich. Der Endzustand enthält keine Fixture-Aktivierung, keinen Fixture-Cronjob und keine Fixture-Spiegeldaten.
-- TEST erhielt keinen Lexware-Schlüssel und führte keinen Live-Abgleich aus. Produktion wurde nicht verändert. Die Freigabe für einen automatischen Cronbetrieb oder eine Produktionsinstallation ist damit weiterhin nicht erteilt.
+- Die vollständigen neun PHP-/Dolibarr-Testdateien liefen gegen die finalen TEST-Module erfolgreich. Danach wurde auf die vorherigen Artefakte zurückgerollt und dieselbe Suite erneut erfolgreich ausgeführt. Abschließend wurden die finalen `fd33412`-Artefakte wieder eingespielt, die Suite ein drittes Mal erfolgreich ausgeführt, die alten Verzeichnisse entfernt und die finale Manifestgleichheit erneut bestätigt.
+- Der Endzustand enthält keine Fixture-Aktivierung, keinen Fixture-Cronjob und keine Fixture-Spiegeldaten. TEST erhielt keinen Lexware-Schlüssel und führte keinen Live-Abgleich aus. Produktion wurde nicht verändert. Die Freigabe für einen automatischen Cronbetrieb oder eine Produktionsinstallation ist damit weiterhin nicht erteilt.
