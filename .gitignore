@@ -1,4 +1,5 @@
 releases/*.tar.gz
+releases/*.zip
 releases/*.sha256
 .DS_Store
 .idea/
