@@ -5,6 +5,7 @@ declare(strict_types=1);
 define('NOLOGIN', 1);
 define('NOCSRFCHECK', 1);
 require '/var/www/html/main.inc.php';
+$conf->entity = random_int(1100000000,1900000000);
 
 $moduleRoot = getenv('HWOS_MODULE_ROOT') ?: '/tmp/hwos/modules';
 $conf->file->dol_document_root = ['hwos_test'=>$moduleRoot] + $conf->file->dol_document_root;
@@ -33,6 +34,7 @@ function assertActivationSame(string $expected, string $actual, string $message)
 
 $module = new modHwosCore($db);
 $entity = (int) $conf->entity;
+if ($entity < 1100000000 || $entity > 1900000000) { throw new RuntimeException('CORE_TEST_REQUIRES_PROTECTED_ENTITY'); }
 $globalActivationPresent = activationQuery(
     $db,
     "SELECT COUNT(*) FROM ".MAIN_DB_PREFIX."const".
@@ -151,6 +153,10 @@ try {
             $errorMessage = $errorMessage === null ? $restoreMessage : $errorMessage.'; '.$restoreMessage;
         }
     }
+}
+
+if (!$db->query("DELETE FROM ".MAIN_DB_PREFIX."const WHERE entity=".$entity." AND name='HWOSCORE_SCHEMA_VERSION'")) {
+    $errorMessage = ($errorMessage === null ? '' : $errorMessage.'; ').'schema fixture cleanup failed: '.$db->lasterror();
 }
 
 if ($errorMessage !== null) {

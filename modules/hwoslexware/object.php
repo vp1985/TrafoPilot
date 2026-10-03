@@ -7,7 +7,8 @@ llxHeader('', 'TrafoPilot – Lexware'); print load_fiche_titre('TrafoPilot – 
 $rows = $lxStore->rows('SELECT r.* FROM '.$lxStore->table('resource').' r JOIN '.$lxStore->table('mapping').' m ON m.fk_resource=r.rowid AND m.entity=r.entity WHERE r.entity='.$lxStore->entity.' AND m.object_type='.$lxStore->q($type).' AND m.object_id='.$id);
 foreach ($rows as $r) {
     $p = json_decode($r['payload_json'],true);
-    print '<p><a href="resource.php?id='.(int) $r['rowid'].'">'.lxEscape($r['remote_id']).'</a> · '.lxEscape($p['voucherNumber'] ?? '').' · '.lxEscape($p['voucherStatus'] ?? $r['projection_status']).' · Version '.lxEscape($r['revision']).' · '.lxEscape($r['date_sync']).'</p>';
+    print '<p><a href="resource.php?id='.(int) $r['rowid'].'">'.lxEscape($r['remote_id'].((int) $r['missing'] ? ' · entfernt/inaktiv' : '').((int) $r['archived'] ? ' · archiviert' : '')).'</a> · '.lxEscape($p['voucherNumber'] ?? '').' · '.lxEscape($p['voucherStatus'] ?? $r['projection_status']).' · Version '.lxEscape($r['revision']).' · '.lxEscape($r['date_sync']).'</p>';
+    lxProjectionStatus($r, $p);
     if ($pay = $lxStore->find('payments',$r['remote_id'])) { print '<pre>'.lxEscape($pay['payload_json']).'</pre>'; }
     if ($type === 'thirdparty') {
         foreach ($lxStore->rows('SELECT rowid,payload_json FROM '.$lxStore->table('resource').' WHERE entity='.$lxStore->entity." AND resource_type NOT LIKE '%-pages'") as $doc) {

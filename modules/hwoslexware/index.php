@@ -33,21 +33,21 @@ llxHeader('', 'TrafoPilot – Lexware Office');
 print load_fiche_titre('TrafoPilot – Lexware Office');
 print '<p>Lexware Office → Dolibarr · ausschließlich lesend</p>';
 if ($notice) { print '<p>'.lxEscape($notice).'</p>'; }
-if ($user->hasRight('hwoslexware', 'admin')) {
+if (LexwareAccess::allowed($user, 'admin')) {
     try { LexwareClient::fromEnvironment(); $secretAvailable = true; } catch (Throwable $e) { $secretAvailable = false; }
     print '<p>Read-only-Secret: '.($secretAvailable ? 'injiziert' : 'nicht injiziert').'</p>';
     print '<p>Organisation: Holger Testzentrum · '.lxEscape(LexwareClient::ORGANIZATION).'</p>';
 }
 print '<form method="POST"><input type="hidden" name="token" value="'.lxEscape(newToken()).'">';
-if ($user->hasRight('hwoslexware', 'admin')) { print '<button name="action" value="test">Verbindung testen</button> '; }
-if ($user->hasRight('hwoslexware', 'sync')) {
+if (LexwareAccess::allowed($user, 'admin')) { print '<button name="action" value="test">Verbindung testen</button> '; }
+if (LexwareAccess::allowed($user, 'sync')) {
     print '<button name="action" value="dry">Vorschau / Dry Run</button> ';
     print '<label><input type="checkbox" name="confirm" value="yes"> Größeren Lauf bestätigen</label> ';
     print '<button name="action" value="full">Aus Lexware aktualisieren (vollständig)</button> ';
     print '<button name="action" value="incremental">Änderungen abrufen</button>';
 }
 print '</form><p><a href="resources.php">Spiegel und Statistiken</a> · <a href="issues.php">Fehler, Konflikte und Zuordnungen</a></p>';
-if ($user->hasRight('hwoslexware','sync')) {
+if (LexwareAccess::allowed($user, 'sync')) {
     print '<details><summary>Bekannte Lexware-ID abrufen (z. B. Mahnung)</summary><form method="POST"><input type="hidden" name="token" value="'.lxEscape(newToken()).'"><input type="hidden" name="action" value="known"><select name="resource_type">';
     foreach (array_unique(array_merge(['contacts','articles','recurring-templates'],array_values(LexwareResources::ROUTES))) as $type) { print '<option value="'.lxEscape($type).'">'.lxEscape($type).'</option>'; }
     print '</select><input name="remote_id" maxlength="36" required placeholder="Lexware-UUID"><button>Lesend abrufen</button></form></details>';
@@ -59,10 +59,14 @@ if ($runId && ($run = $lxStore->one('run', $runId))) {
     print '<p>Fortschritt: '.$done.' / '.count($queue).' Aufgaben</p><progress value="'.$done.'" max="'.max(1,count($queue)).'"></progress>';
     print '<pre>'.lxEscape(json_encode(json_decode($run['stats_json']), JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE)).'</pre>';
     print '<form method="POST"><input type="hidden" name="token" value="'.lxEscape(newToken()).'"><input type="hidden" name="run" value="'.$runId.'">';
-    if ($user->hasRight('hwoslexware','sync') && $run['status'] === 'pending') { print '<button name="action" value="batch">Nächsten Batch verarbeiten</button>'; }
-    if ($user->hasRight('hwoslexware','retry') && $run['status'] === 'errors') { print '<button name="action" value="retry">Fehler erneut einreihen</button>'; }
+    if (LexwareAccess::allowed($user, 'sync') && $run['status'] === 'pending') { print '<button name="action" value="batch">Nächsten Batch verarbeiten</button>'; }
+    if (LexwareAccess::allowed($user, 'retry') && $run['status'] === 'errors') { print '<button name="action" value="retry">Fehler erneut einreihen</button>'; }
     print '</form>';
     foreach ($queue as $t) { if ($t['state'] === 'error') { print '<p>'.lxEscape($t['type'].' '.$t['id'].' '.$t['error']).'</p>'; } }
+    print '<h3>Auditprotokoll</h3>';
+    foreach ($lxStore->rows('SELECT event_type,date_event,payload_json FROM '.MAIN_DB_PREFIX.'hwoscore_audit_event WHERE entity='.$lxStore->entity." AND event_type LIKE 'lexware.%' AND JSON_EXTRACT(payload_json,'$.run')=".$runId.' ORDER BY rowid DESC') as $log) {
+        print '<details><summary>'.lxEscape($log['event_type'].' · '.$log['date_event']).'</summary><pre>'.lxEscape($log['payload_json']).'</pre></details>';
+    }
     if ($run['mode'] === 'dry') { print '<details><summary>Geplante Zuordnungen und Änderungen</summary><pre>'.lxEscape(json_encode($cp['preview'] ?? [], JSON_PRETTY_PRINT)).'</pre></details>'; }
 }
 print '<h2>Importlauf-Historie</h2><table class="noborder centpercent"><tr><th>Lauf</th><th>Modus</th><th>Status</th><th>Beginn</th><th>Benutzer/Kontext</th></tr>';

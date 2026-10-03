@@ -245,3 +245,8 @@ Dieser Abschnitt belegt den Worktree-Code in DEV. Versioniertes Artefakt, TEST-I
 - Die leere Konfliktseite zeigt nun ausdrücklich „Keine offenen Lexware-Konflikte“ und den letzten erfolgreichen Abgleich. Ein testgetrieben behobener Fehler stellt sicher, dass ein neuerer fehlgeschlagener oder laufender Lauf den letzten erfolgreichen Lauf nicht verdeckt. Test-Fixtures verwenden eine zufällige Entity und bereinigen ausschließlich ihre erfassten Lauf-IDs.
 - Das abschließende unabhängige Review dieser UI-Korrektur meldete `passed: true`, keine Sicherheitsbedenken, keine Logikfehler und keine offenen Vorschläge.
 - Geprüfter und gepushter Modulcommit: `3b8828259138530b84e3017a75dd9a5dc687d9c6` auf `feature/lexware-production-ready`. Ein Pull Request wurde mangels authentifizierter GitHub-Session nicht automatisch angelegt; Compare-Link: `https://github.com/vp1985/TrafoPilot/compare/main...feature/lexware-production-ready?expand=1`.
+
+
+## Nachtrag: isolierte Historien-/Konfliktänderung vom 03.10.2026
+
+Die [separate Implementierungsabnahme](lexware-history-acceptance-2026-10-03.md) dokumentiert den nicht committeten 0.2.0-Feature-Worktree. Die oben beschriebenen früheren Live-Läufe und 0.1.0-Artefakte beweisen diesen neuen Code nicht. Für die Historienänderung wurden ausschließlich synthetische DEV-Tests und lokale authentifizierte HTTP-/Chromium-Prüfungen ausgeführt. Es gab keinen neuen Live-Abgleich, keine TEST-/Produktionsänderung und keine Cronfreigabe.
