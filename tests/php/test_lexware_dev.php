@@ -3,7 +3,7 @@ declare(strict_types=1);
 define('NOLOGIN',1); define('NOCSRFCHECK',1);
 require '/var/www/html/main.inc.php';
 // Isolate fixtures from real DEV mirrors and native business records.
-$conf->entity = 970200;
+$conf->entity = random_int(1100000000, 1900000000);
 $root = getenv('HWOS_MODULE_ROOT') ?: '/var/www/html/custom';
 $conf->file->dol_document_root = ['hwos_test'=>$root] + $conf->file->dol_document_root;
 $conf->file->dol_url_root['hwos_test'] = '/hwos-test';
@@ -48,22 +48,45 @@ try {
         'mapping'=>['uk_lx_mapping_resource'=>'entity,fk_resource','uk_lx_mapping_object'=>'entity,object_type,object_id'],
         'issue'=>['uk_lx_issue'=>'entity,fk_resource,issue_type'], 'file'=>['uk_lx_file'=>'entity,fk_resource,remote_id,representation'],
         'relation'=>['uk_lx_relation'=>'entity,fk_resource,related_id,related_type']];
+    $columns += [
+        'payload_version'=>'rowid,entity,fk_resource,checksum,raw_checksum,revision,payload_json,fk_run,date_creation',
+        'file_version'=>'rowid,entity,fk_resource,remote_id,representation,content_hash,mime_type,content_blob,date_sync',
+        'state_event'=>'rowid,entity,fk_resource,fk_relation,state,fk_run,date_creation',
+        'resolution'=>'rowid,entity,fk_resource,fk_issue,source_checksum,revision,choice,prior_native_json,fk_user,date_creation'];
+    $indexes += [
+        'payload_version'=>['uk_lx_payload_version'=>'entity,fk_resource,raw_checksum','idx_lx_payload_source'=>'entity,fk_resource,checksum'],
+        'file_version'=>['uk_lx_file_version'=>'entity,fk_resource,remote_id,representation,content_hash'],
+        'state_event'=>['idx_lx_state'=>'entity,fk_resource,fk_relation,rowid'],
+        'resolution'=>['uk_lx_resolution'=>'entity,fk_issue,source_checksum,choice']];
+    checkLx(count($columns) === 10, 'schema contract covers all ten module tables');
     foreach ($columns as $table=>$expected) {
         $actual = $s->rows('SHOW COLUMNS FROM '.$s->table($table));
-        checkLx(implode(',',array_column($actual,'Field')) === $expected,'complete columns '.$table);
-        $sizes=['organization_id'=>36,'mode'=>16,'status'=>24,'context'=>24,'last_error'=>128,'resource_type'=>64,'remote_id'=>128,'revision'=>64,'remote_created'=>64,'remote_updated'=>64,'checksum'=>64,'projection_status'=>24,'object_type'=>64,'snapshot_checksum'=>64,'remote_checksum'=>64,'projection_policy'=>24,'issue_type'=>32,'representation'=>32,'content_hash'=>64,'mime_type'=>128,'related_id'=>128,'related_type'=>64];
+        $actualNames = array_column($actual,'Field'); $expectedNames = explode(',', $expected); sort($actualNames); sort($expectedNames);
+        checkLx($actualNames === $expectedNames,'complete columns '.$table);
+        $sizes=['state'=>24,'choice'=>24,'raw_checksum'=>64,'source_checksum'=>64,'organization_id'=>36,'mode'=>16,'status'=>24,'context'=>24,'last_error'=>128,'resource_type'=>64,'remote_id'=>128,'revision'=>64,'remote_created'=>64,'remote_updated'=>64,'checksum'=>64,'projection_status'=>24,'object_type'=>64,'snapshot_checksum'=>64,'remote_checksum'=>64,'projection_policy'=>24,'issue_type'=>32,'representation'=>32,'content_hash'=>64,'mime_type'=>128,'related_id'=>128,'related_type'=>64];
         $nullable=['run'=>['fk_user','date_finished','last_error'],'resource'=>['revision','remote_created','remote_updated','last_error']];
         foreach ($actual as $c) {
             $name=$c['Field'];
-            $expectedType=isset($sizes[$name]) ? 'varchar('.$sizes[$name].')' : (str_ends_with($name,'_json') ? 'longtext' : ($name==='content_blob' ? 'longblob' : (str_starts_with($name,'date_') ? 'datetime' : (in_array($name,['rowid','fk_run','fk_resource'],true) ? 'bigint(20)' : 'int(11)'))));
+            $expectedType=isset($sizes[$name]) ? 'varchar('.$sizes[$name].')' : (str_ends_with($name,'_json') ? 'longtext' : ($name==='content_blob' ? 'longblob' : (str_starts_with($name,'date_') ? 'datetime' : (in_array($name,['rowid','fk_run','fk_resource','fk_issue','fk_relation'],true) ? 'bigint(20)' : 'int(11)'))));
             checkLx($c['Type']===$expectedType,'column type '.$table.'.'.$name);
             checkLx($c['Null']===(in_array($name,$nullable[$table] ?? [],true) ? 'YES' : 'NO'),'column nullability '.$table.'.'.$name);
-            $default=in_array($name,['archived','missing'],true) ? '0' : ($name==='projection_status' ? 'pending' : ($name==='projection_policy' ? 'owned' : ($table==='issue' && $name==='status' ? 'open' : null)));
+            $default=in_array($name,['archived','missing','fk_relation'],true) ? '0' : ($name==='projection_status' ? 'pending' : ($name==='projection_policy' ? 'owned' : ($table==='issue' && $name==='status' ? 'open' : null)));
             checkLx($c['Default']===$default,'column default '.$table.'.'.$name);
             checkLx($name === 'rowid' ? $c['Extra'] === 'auto_increment' : $c['Extra'] === '', 'column extra '.$table);
         }
         $actualIndexes = [];
         foreach ($s->rows('SHOW INDEX FROM '.$s->table($table)) as $i) { $actualIndexes[$i['Key_name']][] = $i['Column_name']; checkLx((int) $i['Non_unique'] === (str_starts_with($i['Key_name'],'idx_') ? 1 : 0),'index uniqueness'); }
+        $sequence = [];
+        foreach ($s->rows('SHOW INDEX FROM '.$s->table($table)) as $index) {
+            $sequence[$index['Key_name']] = ($sequence[$index['Key_name']] ?? 0) + 1;
+            checkLx((int) $index['Seq_in_index'] === $sequence[$index['Key_name']], 'index ordered positions '.$table);
+            checkLx($index['Collation'] === 'A' && $index['Sub_part'] === null && $index['Packed'] === null && $index['Null'] === '' && $index['Index_type'] === 'BTREE', 'complete index structure '.$table);
+            checkLx($index['Comment'] === '' && $index['Index_comment'] === '', 'index comments '.$table);
+            if (isset($index['Ignored'])) { checkLx($index['Ignored'] === 'NO', 'index enabled '.$table); }
+            if (isset($index['Visible'])) { checkLx($index['Visible'] === 'YES', 'index visible '.$table); }
+            checkLx($index['Cardinality'] === null || (int) $index['Cardinality'] >= 0, 'index statistics '.$table);
+        }
+        checkLx($s->rows('SHOW TABLE STATUS WHERE Name='.$s->q($s->table($table)))[0]['Engine'] === 'InnoDB', 'transactional table engine '.$table);
         $expectedIndexes = ['PRIMARY'=>'rowid'] + $indexes[$table];
         checkLx(count($actualIndexes) === count($expectedIndexes),'complete index count');
         foreach ($expectedIndexes as $name=>$cols) { checkLx(implode(',',$actualIndexes[$name] ?? []) === $cols,'index '.$name); }
@@ -135,7 +158,7 @@ try {
     $repeat=$sync->start($user,'full','test'); $runs[]=$repeat;
     for ($j=0;$j<100;$j++) { $r=$sync->batch($repeat,$user,5); if ($r['status'] !== 'pending') { break; } }
     checkLx($after===$counts(),'repeat creates no duplicates');
-    checkLx($fileRequests===$firstFileRequests,'unchanged PDFs are not downloaded twice');
+    checkLx($fileRequests===$firstFileRequests+count($documents),'repeat fetch detects new file content under unchanged remote identity');
     // Native local copies must not inherit the remote identity or modify originals.
     // Enable native capabilities only in this CLI process; persist no module flags.
     foreach (['propal','commande','facture'] as $capability) {
@@ -175,8 +198,8 @@ try {
     }
     $after=$counts();
     $changed = $documents['invoices'][1]; $changed['version']=2; $changed['remark']='Remote revision fixture';
-    $changedResource=$s->put($full,'invoices',$iid,json_encode($changed),(int) $user->id);
-    checkLx((new LexwareProjection($s))->project($changedResource,$user)==='update','safe native document revision');
+    $changedResource=$s->put((int) $s->find('invoices',$iid)['fk_run'],'invoices',$iid,json_encode($changed),(int) $user->id);
+    checkLx((new LexwareProjection($s))->project($changedResource,$user)==='conflict','material remark revision requires explicit review');
     checkLx($after===$counts(),'revision preserves native identity');
     $savedProduct=$responses['/v1/articles/'.$pid]; $responses['/v1/articles/'.$pid]=['fixtureFailure'=>true];
     $failed=$sync->start($user,'full','test'); $runs[]=$failed;
@@ -196,41 +219,18 @@ try {
     $projector->approve((int) $resource['rowid'],'thirdparty',(int) $m['object_id'],$user,true);
     checkLx($projector->snapshot('thirdparty',(int) $m['object_id'])===$localSnapshot,'manual reassignment preserves local fields');
     $contact['version']=9;
-    $revised=$s->put($full,'contacts',$cid,json_encode($contact),(int) $user->id);
+    $revised=$s->put($failed,'contacts',$cid,json_encode($contact),(int) $user->id);
     checkLx($projector->project($revised,$user)==='conflict','linked existing contact is not overwritten on remote changes');
     echo "PASS: byte-exact profile/reference storage, native document clones and local follow-ups preserve originals and remote mappings\n";
     echo "PASS: double migration, full schema/indexes, dry-run, pagination, resume, native projections/revisions, idempotency, isolated errors/retry, conflicts and stock/bank invariants\n";
 } catch (Throwable $e) { $error=$e->getMessage().' '.$db->lasterror(); }
 finally {
+    try {
     if ($error) { fwrite(STDERR,'TEST ASSERTION: '.$error."\n"); }
     try {
-    // Identify test-created mappings even when an assertion interrupted the happy path.
-    if ($runs) {
-        $testResources=$s->rows('SELECT rowid FROM '.$s->table('resource').' WHERE entity='.$s->entity.' AND fk_run IN ('.implode(',',$runs).')');
-        foreach ($testResources as $res) { if ($m=$s->mapping((int) $res['rowid'])) { $native[]=$m; } }
-        $seen=[];
-        $cleanupOrder=['shipping'=>0,'invoice'=>1,'order'=>2,'propal'=>3,'product'=>4,'thirdparty'=>5];
-        usort($native,fn($a,$b)=>$cleanupOrder[$a['object_type']] <=> $cleanupOrder[$b['object_type']]);
-        foreach ($native as $m) {
-            $key=$m['object_type'].':'.$m['object_id']; if (isset($seen[$key])) { continue; } $seen[$key]=true;
-            [,,$t,$detail,$fk]=LexwareProjection::OBJECTS[$m['object_type']];
-            if ($detail) { $s->query('DELETE FROM '.MAIN_DB_PREFIX.$detail.' WHERE '.$fk.'='.(int) $m['object_id']); }
-            $s->query('DELETE FROM '.MAIN_DB_PREFIX.'element_element WHERE (sourcetype='.$s->q($m['object_type']==='order' ? 'commande' : ($m['object_type']==='invoice' ? 'facture' : $m['object_type'])).' AND fk_source='.(int) $m['object_id'].') OR (targettype='.$s->q($m['object_type']==='order' ? 'commande' : ($m['object_type']==='invoice' ? 'facture' : $m['object_type'])).' AND fk_target='.(int) $m['object_id'].')');
-            if ($t==='societe') {
-                $s->query('DELETE FROM '.MAIN_DB_PREFIX.'socpeople WHERE fk_soc='.(int) $m['object_id']);
-                $s->query('DELETE FROM '.MAIN_DB_PREFIX.'societe_commerciaux WHERE fk_soc='.(int) $m['object_id']);
-            }
-            if ($t==='product') { $s->query('DELETE FROM '.MAIN_DB_PREFIX.'product_price WHERE fk_product='.(int) $m['object_id']); }
-            $s->query('DELETE FROM '.MAIN_DB_PREFIX.$t.'_extrafields WHERE fk_object='.(int) $m['object_id']);
-            try { $s->query('DELETE FROM '.MAIN_DB_PREFIX.$t.' WHERE rowid='.(int) $m['object_id'].' AND entity='.$s->entity); }
-            catch (Throwable $e) { fwrite(STDERR,'CLEANUP '.$t.': '.$db->lasterror()."\n"); throw $e; }
-        }
-        foreach ($testResources as $res) {
-            foreach (['mapping','issue','file','relation'] as $t) { $s->query('DELETE FROM '.$s->table($t).' WHERE entity='.$s->entity.' AND fk_resource='.(int) $res['rowid']); }
-            $s->query('DELETE FROM '.$s->table('resource').' WHERE entity='.$s->entity.' AND rowid='.(int) $res['rowid']);
-        }
-        $s->query('DELETE FROM '.$s->table('run').' WHERE entity='.$s->entity.' AND rowid IN ('.implode(',',$runs).')');
-    }
+    $s->db = $db; $db->rollback();
+    require_once __DIR__.'/lexware_history_cleanup.php';
+    cleanupHistoryEntity($s);
     } finally {
     if ($lifecycleEntered && isset($original)) {
         try {
@@ -240,7 +240,7 @@ finally {
         // inactive synthetic entity's Lexware row, even if native cleanup failed.
         try {
         if (!($active['MAIN_MODULE_HWOSLEXWARE'] ?? false)) {
-            $s->query('DELETE FROM '.MAIN_DB_PREFIX."cronjob WHERE entity=970200 AND module_name='hwoslexware'");
+            $s->query('DELETE FROM '.MAIN_DB_PREFIX."cronjob WHERE entity=".$s->entity." AND module_name='hwoslexware'");
         }
         } finally {
         checkLx(($active['MAIN_MODULE_HWOSCORE'] ?? false) ? $core->init()===1 : $core->remove()===1,'restore core activation');
@@ -248,7 +248,13 @@ finally {
         }
     }
     }
+    } finally {
+        $s->db = $db; $db->rollback();
+        require_once __DIR__.'/lexware_history_cleanup.php';
+        cleanupHistoryEntity($s);
+    }
 }
-checkLx(($active['MAIN_MODULE_HWOSLEXWARE'] ?? false) || !$s->rows('SELECT rowid FROM '.MAIN_DB_PREFIX."cronjob WHERE entity=970200 AND module_name='hwoslexware'"), 'no disabled Lexware fixture cron remains');
+
+checkLx(($active['MAIN_MODULE_HWOSLEXWARE'] ?? false) || !$s->rows('SELECT rowid FROM '.MAIN_DB_PREFIX."cronjob WHERE entity=".$s->entity." AND module_name='hwoslexware'"), 'no disabled Lexware fixture cron remains');
 echo "PASS: fixture cron cleanup and prior activation restoration\n";
 if ($error) { fwrite(STDERR,'FAIL: '.$error."\n"); exit(1); }

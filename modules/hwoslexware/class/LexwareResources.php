@@ -57,9 +57,49 @@ final class LexwareResources
         }
         return $items;
     }
+    /** Typed canonical JSON for payloads containing integers beyond PHP's range. */
+    private static function typedValue(string $raw, int &$pos, bool &$large): array
+    {
+        while (isset($raw[$pos]) && ctype_space($raw[$pos])) { $pos++; }
+        $char = $raw[$pos];
+        if ($char === '"') {
+            $start = $pos++;
+            while ($raw[$pos] !== '"') { if ($raw[$pos] === '\\') { $pos++; } $pos++; }
+            $pos++;
+            return ['string', json_decode(substr($raw, $start, $pos-$start), true, 512, JSON_THROW_ON_ERROR)];
+        }
+        if ($char === '{' || $char === '[') {
+            $object = $char === '{'; $end = $object ? '}' : ']'; $pos++; $items = [];
+            while (true) {
+                while (isset($raw[$pos]) && ctype_space($raw[$pos])) { $pos++; }
+                if ($raw[$pos] === $end) { $pos++; break; }
+                if ($object) {
+                    $key = self::typedValue($raw, $pos, $large)[1];
+                    while (ctype_space($raw[$pos])) { $pos++; } $pos++; // colon
+                    $items[$key] = self::typedValue($raw, $pos, $large);
+                } else { $items[] = self::typedValue($raw, $pos, $large); }
+                while (ctype_space($raw[$pos])) { $pos++; }
+                if ($raw[$pos] === ',') { $pos++; }
+            }
+            if ($object) {
+                ksort($items, SORT_STRING); $entries = [];
+                foreach ($items as $key=>$item) { $entries[] = [(string) $key, $item]; }
+                return ['object', $entries];
+            }
+            return ['array', $items];
+        }
+        preg_match('/\G(?:true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/', $raw, $match, 0, $pos);
+        $token = $match[0]; $pos += strlen($token);
+        $value = json_decode($token, true, 512, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
+        if (is_string($value)) { $large = true; return ['number', $token]; }
+        return [is_bool($value) ? 'boolean' : ($value === null ? 'null' : 'number'), $value];
+    }
     public static function checksum(string $raw): string
     {
         $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
+        $pos = 0; $large = false;
+        $typed = self::typedValue($raw, $pos, $large);
+        if ($large) { return hash('sha256', json_encode($typed, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); }
         $normalize = function ($v) use (&$normalize) {
             if ($v instanceof stdClass) {
                 $a = get_object_vars($v); ksort($a, SORT_STRING);

@@ -6,13 +6,13 @@ class modHwosLexware extends DolibarrModules
     {
         $this->db = $db; $this->numero = 700200; $this->rights_class = 'hwoslexware';
         $this->family = 'interface'; $this->name = 'HwosLexware'; $this->description = 'TrafoPilot Lexware Office Spiegel';
-        $this->version = '0.1.0'; $this->const_name = 'MAIN_MODULE_HWOSLEXWARE'; $this->picto = 'exchange';
+        $this->version = '0.2.0'; $this->const_name = 'MAIN_MODULE_HWOSLEXWARE'; $this->picto = 'exchange';
         $this->editor_name = 'HT-VOLTEQ GmbH'; $this->editor_url = '';
         $this->depends = ['modHwosCore']; $this->requiredby = []; $this->conflictwith = [];
         $this->phpmin = [8,1]; $this->need_dolibarr_version = [24,0];
         $this->module_parts = ['triggers'=>1]; $this->dirs = []; $this->hidden = false;
         $this->config_page_url = ['index.php@hwoslexware']; $this->langfiles = ['hwoslexware@hwoslexware'];
-        $this->const = [['HWOSLEXWARE_SCHEMA_VERSION','chaine','0.1.0','TrafoPilot Lexware schema',0,'current',0]];
+        $this->const = [['HWOSLEXWARE_SCHEMA_VERSION','chaine','0.2.0','TrafoPilot Lexware schema',0,'current',0]];
         $this->rights_admin_allowed = 1; $this->rights = [];
         foreach (['read','sync','mapping','retry','admin'] as $i=>$right) {
             $this->rights[$i] = [0=>700201+$i, 1=>'LexwarePermission'.ucfirst($right), 3=>0, 4=>$right];
@@ -39,6 +39,9 @@ class modHwosLexware extends DolibarrModules
         if (!$existing) { return -1; }
         if (!$this->db->num_rows($existing) && !$this->db->query("ALTER TABLE ".$table." ADD projection_policy VARCHAR(24) NOT NULL DEFAULT 'owned' AFTER remote_checksum")) { return -1; }
         global $conf;
+        require_once __DIR__.'/../../class/LexwareStore.php';
+        try { (new LexwareStore($this->db, (int) $conf->entity))->migrateHistory(); }
+        catch (Throwable $e) { $this->error = 'Lexware history migration failed'; return -1; }
         require_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
         $extra = new ExtraFields($this->db);
         foreach (['societe','product','propal','commande','facture','expedition'] as $element) {
@@ -49,10 +52,10 @@ class modHwosLexware extends DolibarrModules
                 if ($result < 0) { $this->error = 'Lexware UUID extrafield migration failed'; return -1; }
             }
         }
-        $this->db->begin();
+        if ($this->db->begin() <= 0) { return -1; }
         if ($this->delete_menus() !== 0 || $this->delete_tabs() !== 0 || $this->delete_module_parts() !== 0) { $this->db->rollback(); return -1; }
         $result = $this->_init([], $options);
-        if ($result === 1) { $this->db->commit(); } else { $this->db->rollback(); }
+        if ($result === 1) { if ($this->db->commit() <= 0) { $this->db->rollback(); return -1; } } else { $this->db->rollback(); }
         return $result;
     }
     public function remove($options = '') { return $this->_remove([], $options); }

@@ -7,6 +7,8 @@ contract(LexwareResources::checksum('{"z":1,"a":{"b":2}}') === LexwareResources:
 contract(LexwareResources::checksum('{"a":[1,2]}') !== LexwareResources::checksum('{"a":[2,1]}'), 'list order');
 contract(LexwareResources::checksum('{"a":{}}') !== LexwareResources::checksum('{"a":[]}'), 'empty object vs list');
 contract(LexwareResources::checksum('{"a":1}') === LexwareResources::checksum('{"a":1.0}'), 'semantic numbers');
+contract(LexwareResources::checksum('{"n":9223372036854775808123}') !== LexwareResources::checksum('{"n":"9223372036854775808123"}'), 'large number/string source checksum distinction');
+contract(LexwareResources::checksum('{"z":1,"n":9223372036854775808123}') === LexwareResources::checksum('{"n":9223372036854775808123,"z":1.0}'), 'large-number checksum preserves object order and semantic small numbers');
 $referenceRaw = <<<'JSON'
 {"content":[{"id":"fixture","empty":{},"large":9223372036854775808123,"text":"comma, bracket ] and escaped \" quote"}],"last":true}
 JSON;

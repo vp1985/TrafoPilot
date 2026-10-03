@@ -1,6 +1,6 @@
 # TrafoPilot – Lexware Office Spiegel
 
-Externes Dolibarr-24-Modul `hwoslexware`, Version 0.1.0, Modul-ID 700200. Abhängigkeit: `modHwosCore`. Der Dolibarr-Core bleibt unverändert.
+Externes Dolibarr-24-Modul `hwoslexware`, Worktree-Version 0.2.0, Modul-ID 700200. Abhängigkeit: `modHwosCore`. Der Dolibarr-Core bleibt unverändert.
 
 ## Sicherheit und Betrieb
 
@@ -14,7 +14,7 @@ Geschützte Tabellen speichern Original-JSON, Prüfsummen, Versionen, Zeitpunkte
 
 Die Modulübersicht bietet Verbindungstest, Vorschau, Voll-/Änderungsabruf, Batch-Fortsetzung, Historie und Fehlerwiederholung. Ressourcen können einzeln neu geladen werden. Die Lexware-Tabs zeigen IDs, Originalnummern, Versionen, Status, Abgleich, Dateien, Dokumentketten und Zahlungsinformationen. Unsichere Kontakte werden zur manuellen Zuordnung angezeigt. Eine bestätigte Zuordnung überschreibt keine vorhandenen Kontaktfelder; spätere Remote-Änderungen eines solchen verknüpften Kontakts bleiben Konflikte.
 
-Native Kontakte, Produkte/Dienstleistungen, Angebote, Aufträge, Rechnungen, Gutschriften und eindeutig auftragsbezogene Lieferungen werden über native Dolibarr-Klassen angelegt. UUID-Extrafields werden beim Duplizieren geleert. Zeilenänderungen erhalten native IDs; Strukturänderungen und Versandrevisionen verlangen eine Prüfung. Lokale Änderungen einschließlich Extrafields und Ansprechpartnern blockieren automatische Überschreibungen. Erweiterte Steuerszenarien ohne geprüftes Mapping bleiben im Spiegel. Belege ohne Kontaktreferenz erzeugen keine erfundenen Kunden.
+Native Kontakte, Produkte/Dienstleistungen, Angebote, Aufträge, Rechnungen, Gutschriften und eindeutig auftragsbezogene Lieferungen werden über native Dolibarr-Klassen angelegt. UUID-Extrafields werden beim Duplizieren geleert. Materielle Änderungen an den projizierten Kontakt-, Artikel- und Dokumentfeldern einschließlich Positionen, Versandzustand und Dokumentbeziehungen öffnen einen sichtbaren Konflikt, bevor ein bereits projiziertes Dokument geändert wird. Eine ausdrückliche Lexware-Konfliktlösung kann Positionen und Versandbeziehungen ändern; der vorherige native Zustand wird zuvor unveränderlich gespeichert. Lokale Änderungen einschließlich Extrafields und Ansprechpartnern blockieren automatische Überschreibungen. Erweiterte Steuerszenarien ohne geprüftes Mapping bleiben im Spiegel. Belege ohne Kontaktreferenz erzeugen keine erfundenen Kunden.
 
 Zahlungen bleiben ausschließlich Spiegelinformationen; keine Bank-, Kassen-, Buchhaltungs- oder Lagerbewegungen. Historische Statuswerte werden ohne operative Validierung gesetzt. Dolibarr 24 hat einen Fehler in `Expedition::create(...,1)`; eine externe Import-Unterklasse unterdrückt den Triggerdispatcher und umgeht diesen Fehler ohne Core-Patch.
 
@@ -39,11 +39,11 @@ NODE_PATH=/tmp/hwos-lexware-browser/node_modules python3 scripts/lexware-ui-dev.
 
 Der Quellcode muss in DEV unter `/var/www/html/custom/hwoslexware` verfügbar sein. Der CLI-Launcher installiert oder deployt keinen Code. Seine Modulaktivierung wird nach dem Lauf auf den vorherigen Zustand zurückgesetzt. Unterbrochene Läufe werden mit `--run ID` fortgesetzt. Vollimporte erfordern einen erfolgreichen persistenten Dry Run. Der Launcher prüft Geschäftsdatentabellen beim Dry Run sowie Lager-, Zahlungs-, Bank- und Buchhaltungstabellen bei Imports per Datenbankprüfsumme.
 
-Integrationstest-Fixtures verwenden die getrennte Entität 970200 und künstliche Daten. Migrationstests prüfen sämtliche Tabellenspalten inklusive Typ, Nullbarkeit, Default und Extra sowie alle Indizes. Aktivierung wird zweimal ausgeführt; Deaktivierung bewahrt Spiegel und Audit. Tests stellen den vorherigen Aktivierungszustand wieder her. Der Cronjob ist bei Registrierung deaktiviert; ein freigegebener Cron-Benutzer braucht das Abrufrecht. Er verarbeitet begrenzte Batches, wählt wöchentlich einen vollständigen Kontrollscan und sonst einen Änderungsabruf.
+Integrationstest-Fixtures verwenden zufällige, geschützte Testentitäten im Bereich 1100000000–1900000000 und künstliche Daten. Migrationstests prüfen sämtliche Tabellenspalten inklusive Typ, Nullbarkeit, Default und Extra sowie alle Indizes. Aktivierung wird zweimal ausgeführt; Deaktivierung bewahrt Spiegel und Audit. Tests stellen den vorherigen Aktivierungszustand wieder her. Der Cronjob ist bei Registrierung deaktiviert; ein freigegebener Worker-/Cron-Benutzer muss Dolibarr-Administrator sein und das Abrufrecht besitzen; auch manuelle Synchronisation erfordert einen Dolibarr-Administrator. Er verarbeitet begrenzte Batches, wählt wöchentlich einen vollständigen Kontrollscan und sonst einen Änderungsabruf.
 
 TEST und Produktion dürfen ausschließlich ein versioniertes, unveränderliches Release-Artefakt erhalten. Kein solches Deployment gehört zu diesem Auftrag.
 
-Der HTTP-Prüfer verwendet einen temporären Benutzer mit ausschließlich den Modulrechten und löscht ihn anschließend. Das DEV-Elternverzeichnis `/var/www/html/custom` ist seit der dauerhaften Einrichtung `root:www-data 750` und für den Webserver traversierbar. Der Prüfer stellt die ursprünglichen Verzeichnisrechte und den Aktivierungszustand im `finally`-Block wieder her. Er schreibt keine Probe-Datei in das read-only gemountete Modul. Die optionale Browserprüfung bedient den GET-Verbindungstest, die Spiegelnavigation und die Ressourcendetails; Ein fehlender Ressourcendetail-Link lässt die Browserprüfung scheitern. Screenshots landen standardmäßig in `/tmp/hwos-lexware-visual`: Symlink-Verzeichnisse sowie bestehende Verzeichnisse mit fremdem Eigentümer oder anderem Modus als 0700 werden abgewiesen. PNG-Dateien werden exklusiv mit 0600 angelegt; vorhandene Dateien werden nicht überschrieben. Bestehende Benutzerpasswörter bleiben unverändert.
+Der HTTP-Prüfer verwendet einen temporären Benutzer mit ausschließlich den Modulrechten und löscht ihn anschließend. Das DEV-Elternverzeichnis `/var/www/html/custom` ist seit der dauerhaften Einrichtung `root:www-data 750` und für den Webserver traversierbar. Der Prüfer stellt die ursprünglichen Verzeichnisrechte und den Aktivierungszustand im `finally`-Block wieder her. Er schreibt keine Probe-Datei in das read-only gemountete Modul. Die aktuelle History-Browserprüfung verwendet lokale Fixtures ohne Live-Anfrage und bedient die Spiegelnavigation und die Ressourcendetails; Ein fehlender Ressourcendetail-Link lässt die Browserprüfung scheitern. Screenshots landen standardmäßig in `/tmp/hwos-lexware-visual`: Symlink-Verzeichnisse sowie bestehende Verzeichnisse mit fremdem Eigentümer oder anderem Modus als 0700 werden abgewiesen. PNG-Dateien werden exklusiv mit 0600 angelegt; vorhandene Dateien werden nicht überschrieben. Bestehende Benutzerpasswörter bleiben unverändert.
 
 ## API-Grenzen und spätere Phasen
 
@@ -91,6 +91,39 @@ Eine hostlokale benutzereigene 0600-flock-Datei unter
 `/tmp/hwos-lexware-ui-<uid>.lock` serialisiert HTTP-Prüfer dieses Benutzers vom Lesen
 der Ausgangszustände bis zum Ende sämtlicher Aufräumversuche. Der Lock-Inode bleibt
 für wartende Aufrufe bestehen. Andere Werkzeuge oder Benutzer sind nicht serialisiert.
-Normale Bereinigung versucht auch bei fehlgeschlagenem oder werfendem `User::delete`
-beide Modulwiederherstellungen im finally-Block. Unvollständige Wiederherstellung
-meldet Benutzer- und Modulfehler gemeinsam ohne rohe Fehlerdetails.
+Vor Modul-/Benutzer-/CSRF-Änderungen wird ein privates 0600-Journal ohne Passwort
+angelegt. Die Laufanlage trägt eine bereits journalisierte Fixture-Identität, damit
+auch ein Abbruch vor Speicherung der Lauf-ID bereinigt werden kann. Bereinigung
+versucht CSRF, Historie, Benutzer, beide Module und Helper unabhängig und meldet
+alle Phasenfehler. Exakte vorherige CSRF-/Modulkonstanten werden wiederhergestellt;
+Modulfehler unterdrücken diese Wiederherstellung nicht. Der Python-Prüfer versucht
+zusätzlich Verzeichnismodus, Helperentfernung und Lockfreigabe unabhängig. Bei
+unvollständiger Fixture-Bereinigung bleiben das private Journal und sein gemeldeter
+Pfad für erneute Wiederherstellung erhalten.
+
+
+## Historie, Entfernung und Konfliktentscheidungen (0.2.0)
+
+`payload_version` bewahrt jede unterschiedliche rohe JSON-Antwort bytegenau auf. Identische Bytes werden über SHA-256 dedupliziert; zusätzlich bleibt die normalisierte Quellprüfsumme erhalten. Sehr große JSON-Ganzzahlen und gleichlautende JSON-Strings haben unterschiedliche Quellprüfsummen. `file_version` bewahrt jede unterschiedliche Datei pro Ressource, Remote-Datei-ID und Repräsentation unveränderlich auf. Bekannte Datei-IDs werden erneut GET-abgerufen, damit auch geänderte Bytes unter derselben ID erkannt werden. Die bestehende Dateitabelle ist der aktuelle Lookup-Cache; historische Downloads verwenden die unveränderliche Versions-ID. Das Limit bleibt 32 MiB. Es gibt keinen Pruning-Pfad.
+
+Ein vollständiger erfolgreicher Vollabgleich verwendet die Mitgliedschaft der vollständigen Kontakt-, Artikel- und Beleglisten. Verschwundene Kontakte, Artikel/Dienstleistungen, autoritativ aufgelistete Dokumenttypen und Beziehungen bleiben gespeichert und erhalten Entfernt-/Inaktiv-Historie mit Lauf und Zeitpunkt. Mahnungen besitzen keine vollständige öffentliche Auflistung und werden niemals durch Abwesenheit entfernt. Positive Detail-/Beziehungsbeobachtungen reaktivieren sofort; Abwesenheit erfordert typbezogene Vollabgleichautorität. Neuere Läufe sperren ältere Abwesenheitsentscheidungen. Wiederauftauchen wird deterministisch protokolliert. Inkrementelle, fehlgeschlagene, noch laufende und alte Checkpoints ohne vollständigen Mitgliedschaftsnachweis markieren keine Entfernungen. Einzelne 404-Antworten markieren ebenfalls keine Entfernung. Ungültige Pagination verhindert einen erfolgreichen Abschluss. Native Zuordnungen bleiben erhalten.
+
+Nur Dolibarr-Administratoren starten oder verarbeiten Synchronisationsläufe; ein allein vergebenes Modulrecht `sync` oder `admin` genügt nicht. Lesen, manuelle Zuordnung, Konfliktlösung und Einzelwiederholung bleiben über ihre eigenen Rechte zugänglich, auch für berechtigte Nichtadministratoren. Administratoren dürfen diese Aktionen ebenfalls ausführen. Cron bleibt standardmäßig deaktiviert und wird durch diese Änderung nicht aktiviert.
+
+Die Konfliktentscheidung erfolgt pro offenem Fall und exakter Quellprüfsumme, ausschließlich per POST mit nativer CSRF- und Rechteprüfung. Bei verknüpften nativen Belegen, Auftragspositionen mit Lieferursprung, Lieferungs-Chargen sowie Rechnungs-Rabatt-/Zeitverknüpfungen blockiert **Lexware** vor jedem Schreibzugriff. Für zulässige Änderungen speichert **Lexware** zuerst den vorherigen nativen Dolibarr-Zustand unveränderlich und wendet danach den ausgewählten aktuellen Spiegel innerhalb derselben Transaktion an. Fehlgeschlagene Änderungen rollen native Daten, Mapping, Entscheidung und Audit zurück. **Dolibarr** verändert den nativen Datensatz nicht und akzeptiert ausschließlich diese Quellversion; identische Wiederholungen bleiben unterdrückt, eine neue Quellprüfsumme öffnet wieder einen Konflikt. Ein späterer lokaler Edit nach einer Lexware-Entscheidung kann als neuer Fall auch gegen dieselbe Quelle entschieden werden. Es gibt keine globale Vorrangoption.
+
+Artikelentscheidungen verwenden native Typ-/Preisoperationen und prüfen gespeicherte
+Netto-/Bruttopreise, Steuer-/Preisbasistyp, Produkt-/Dienstleistungstyp und Preishistorie
+vor Abschluss des Konflikts. Zugeordnete Angebots-, Auftrags- und Rechnungspositionen
+behalten ihre IDs; die native Produktzuordnung wird geprüft geschrieben und aus der
+Datenbank zurückgelesen. Eine ausdrücklich bestätigte Lieferungsauflösung kann deren
+Positionen neu aufbauen, bewahrt aber das Lieferungsobjekt und den unveränderlichen
+vorherigen Snapshot. Kontaktpersonen-Extrafields gehören zu Sperren, lokalen Konflikten
+und unveränderlichen vorherigen Snapshots. Nicht erhaltbare abhängige Daten blockieren
+die Entscheidung.
+
+Ressourcendetails zeigen Payload- und Dateiversionen, Statushistorie, Konfliktentscheidungen, vorherige native Snapshots und das geschützte Auditprotokoll. Listen zeigen Entfernt-/Archiviert-Markierungen; Ressourcendetails und native Tabs zeigen Workflow und Projektion getrennt; Leseberechtigte sehen Konfliktwarnungen ohne Lösungsrechte. Payload- und Dateiversionen sind geschützt herunterladbar. Dynamische Inhalte werden HTML-escaped. Es wurden keine Benachrichtigungen oder Lager-, Bank-, Zahlungs- oder Buchhaltungsaktionen ergänzt.
+
+Die vier neuen Modultabellen sind additive Migrationen. Wiederholbare Backfills übernehmen die aktuell vorhandenen Payloads und Dateien des veröffentlichten Schemas, ohne bestehende Zuordnungen oder Dateien zu ändern. Bereits vor dieser Änderung überschriebene Versionen können daraus nicht rekonstruiert werden.
+
+Die [Implementierungsabnahme vom 03.10.2026](../../docs/lexware-history-acceptance-2026-10-03.md) beschreibt synthetische Datenbanktests und authentifizierte lokale UI-Prüfungen. Sie ist **kein neuer Live-Lexware-Nachweis** und keine TEST-/Produktionsfreigabe. Die private UI-Evidenz umfasst Desktop-Ansichten und eine befüllte mobile Ressource/Historie; die Konfliktseitenaufnahme verwendet bewusst einen Benutzer ohne Lösungsrecht. Admin-/Zuordnungsformulare werden separat serverseitig und per HTTP geprüft. Für die browserbasierte UI-Prüfung ist Playwright erforderlich; der Prüfer führt keine Lexware-Verbindungsaktion mehr aus.

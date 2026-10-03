@@ -32,6 +32,8 @@ cleanup() {
 trap cleanup EXIT
 test_directory="$("${docker_cmd[@]}" exec "$container" mktemp -d /tmp/hwos-tests-XXXXXXXXXX)"
 "${docker_cmd[@]}" exec "$container" chmod 700 "$test_directory"
+"${docker_cmd[@]}" cp "$repo_root/tests/php/lexware_history_cleanup.php" "$container:$test_directory/lexware_history_cleanup.php"
+"${docker_cmd[@]}" cp "$repo_root/tests/fixtures" "$container:$test_directory/fixtures"
 "${docker_cmd[@]}" cp "$repo_root/scripts/lexware-ui-fixture.php" "$container:$test_directory/lexware-ui-fixture.php"
 "${docker_cmd[@]}" exec "$container" mkdir -p "$module_path"
 "${docker_cmd[@]}" cp "$repo_root/modules/." "$container:$module_path"
@@ -40,8 +42,15 @@ for test_file in "$repo_root"/tests/php/test_*.php; do
     test_name="$(basename "$test_file")"
     test_path="$test_directory/$test_name"
     "${docker_cmd[@]}" cp "$test_file" "$container:$test_path"
+    php_options=()
+    # Only this synthetic CLI test needs a second PHP process; no server setting changes.
+    if [[ "$test_name" == test_lexware_history.php ]]; then php_options=(-d disable_functions=); fi
     "${docker_cmd[@]}" exec \
         -e HWOS_MODULE_ROOT="$module_path" \
         -e HWOS_SCRIPT_ROOT="$test_directory" \
-        "$container" php "$test_path"
+        -e HWOS_FIXTURE_ROOT="$test_directory/fixtures" \
+        "$container" php "${php_options[@]}" "$test_path"
 done
+
+"${docker_cmd[@]}" cp "$repo_root/tests/php/lexware_history_invariant.php" "$container:$test_directory/lexware_history_invariant.php"
+"${docker_cmd[@]}" exec -e HWOS_MODULE_ROOT="$module_path" "$container" php "$test_directory/lexware_history_invariant.php"
