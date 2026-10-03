@@ -37,6 +37,10 @@ try {
     $raw1 = '{"id":"'.$id.'","version":1,"title":"first","empty":{},"large":9223372036854775808123}';
     $raw2 = str_replace('first', 'second', $raw1);
     $r = $s->put($run, 'articles', $id, $raw1, (int) $user->id); $ids[] = (int) $r['rowid'];
+    if ($case === 'mapping-concurrent' && !function_exists('proc_open')) {
+        echo "SKIP: history mapping-concurrent requires proc_open; covered by DEV suite\n";
+        continue;
+    }
     if ($case === 'mapping-concurrent') {
         $projector = new LexwareProjection($s); $contacts = [];
         foreach (['a','b','target'] as $suffix) {

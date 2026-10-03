@@ -227,3 +227,18 @@ Final verification on the final code:
 - Final independent specification/migration/UI review: `passed: true`, `security_concerns: []`, `logic_errors: []`.
 
 This reviewed implementation is ready for commit, immutable artifact packaging and TEST promotion. It is not a new live-Lexware proof, does not enable cron and does not authorize production.
+
+## Immutable artifacts and TEST promotion
+
+- Reviewed module source commit: `b0d1bdc4197325aba3a90345e9e93124b0219a7b`.
+- Immutable archives:
+  - `module_hwoscore-0.1.0-b0d1bdc41973.zip` — SHA-256 `b0b53192e2153727dcffa5304f8bd590f561009e1f48be6e7907e917714ddee1`.
+  - `module_hwoslexware-0.2.0-b0d1bdc41973.zip` — SHA-256 `c026072f9b6282e9f3663f2a7e15180b7885a82284cac3d9f63dff2c95072968`.
+- Both archives passed stored-hash, ZIP-integrity, path-traversal and symlink validation before atomic installation on TEST.
+- The complete installed-artifact PHP suite passed. The two-connection `mapping-concurrent` harness is explicitly skipped in TEST because that container disables `proc_open`; the same case passed repeatedly in the full DEV suite. All other history, recovery, migration, permission and transport cases passed on TEST.
+- Atomic rollback restored the previously accepted 0.1 artifacts, whose own release suite passed. The 0.2 artifacts were then reapplied; their complete TEST suite passed again and prior directories were finalized.
+- Final byte-for-byte manifest verification: Core 5 files and Lexware 22 files match their archives exactly.
+- Final TEST state: Core and Lexware active in entity 1, exactly one disabled Lexware cron row (`rowid 1`, status 0), no fixture constants and no fixture runs. TEST received no Lexware credential and performed no live synchronization.
+- The post-artifact documentation/test-harness adjustment only makes the concurrency test report a controlled skip when `proc_open` is unavailable; module bytes and artifact hashes are unchanged.
+
+TEST promotion is complete. Production remains unchanged and unauthorized; cron remains disabled.
