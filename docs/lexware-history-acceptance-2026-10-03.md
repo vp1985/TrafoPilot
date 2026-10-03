@@ -242,3 +242,17 @@ This reviewed implementation is ready for commit, immutable artifact packaging a
 - The post-artifact documentation/test-harness adjustment only makes the concurrency test report a controlled skip when `proc_open` is unavailable; module bytes and artifact hashes are unchanged.
 
 TEST promotion is complete. Production remains unchanged and unauthorized; cron remains disabled.
+
+## Final DEV deployment and live GET-only proof
+
+- The accepted 0.2.0 Lexware artifact was installed atomically into the permanent DEV module source and matched its archive byte-for-byte: 22 files, archive SHA-256 `c026072f9b6282e9f3663f2a7e15180b7885a82284cac3d9f63dff2c95072968`.
+- Web and Cron containers were recreated so the bind-mounted module and protected read-only secret use the new inodes. Both services started successfully; the web container was healthy.
+- Core and Lexware were activated twice on entity 1. All ten Lexware tables exist. Exactly one DEV Lexware cron row remains (`rowid 9`, status 0), so automatic synchronization is still disabled.
+- Manual GET-only full synchronization run `5591` completed in nine batches without run or task error. The profile again identified the expected Lexware test organization. No Lexware write request was introduced or executed.
+- Run 5591 found 257 countries, 231 posting categories, one payment condition, one print layout, one contact, one article/service and 29 sales documents. The existing contact, service and quotation remained unchanged native mappings; no duplicate was created.
+- Verified final entity-1 mirror state: 532 resources, three native mappings, one current PDF, zero open issues. The existing synthetic mappings remain Debitor 32, Dienstleistung 44 and Angebot 40/`AG0008` with 100.00 EUR net, 19.00 EUR VAT and 119.00 EUR gross.
+- The stored PDF remains 42,974 bytes with matching stored/calculated SHA-256 `9438215303046841f7ebfe651c3a5016928ea1d0417b88bf917bf85a4ee25cba`.
+- Upgrade backfill/live-history state: 532 payload versions, one file version, and zero resources without a version matching their current raw payload. No removal, resolution or relationship event was manufactured for unchanged live data.
+- Protected stock, bank, payment and bookkeeping checksums remained unchanged. The previous DEV module directory was retained only through verification and then finalized after all checks passed.
+
+DEV is operational for the approved manual, administrator-only, read-only workflow. Cron remains disabled by decision. Production remains unchanged and unauthorized.
